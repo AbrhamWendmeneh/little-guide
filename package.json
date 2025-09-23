@@ -1,0 +1,13 @@
+{
+  "name": "littleguide-email-verification",
+  "version": "1.0.0", 
+  "description": "Email verification page for LittleGuide app",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Static site - no build required'",
+    "start": "echo 'Static site - serve index.html'"
+  },
+  "keywords": ["email", "verification", "supabase", "littleguide"],
+  "author": "LittleGuide Team",
+  "license": "MIT"
+}

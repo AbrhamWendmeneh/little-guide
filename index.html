@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Verification - LittleGuide</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      window.ENV = {
+        SUPABASE_URL: "https://qnafvveopvlgvgybpyue.supabase.co",
+        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYWZ2dmVvcHZsZ3ZneWJweXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzI2NTIsImV4cCI6MjA1OTAwODY1Mn0.Xcnl0-iq1PsSjPMvcvCelq5mIpn8PLdZLT_HFd9szSU",
+      };
+    </script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+      }
+
+      .logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 30px;
+        background: linear-gradient(135deg, #e11d48, #8b5cf6);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+      }
+
+      .status-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+      }
+
+      .status-icon.verifying {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+
+      .status-icon.success {
+        background: #dcfce7;
+        color: #16a34a;
+      }
+
+      .status-icon.error {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #8b5cf6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 12px;
+      }
+
+      .subtitle {
+        font-size: 16px;
+        color: #6b7280;
+        line-height: 1.5;
+        margin-bottom: 30px;
+      }
+
+      .info-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+
+      .info-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+      }
+
+      .info-text {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.5;
+      }
+
+      .button {
+        background: #8b5cf6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin: 10px;
+        transition: background-color 0.2s;
+      }
+
+      .button:hover {
+        background: #7c3aed;
+      }
+
+      .button.secondary {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+
+      .button.secondary:hover {
+        background: #e5e7eb;
+      }
+
+      .error-details {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 20px 0;
+        text-align: left;
+      }
+
+      .error-details h3 {
+        color: #dc2626;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .error-details p {
+        color: #7f1d1d;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 14px;
+        color: #6b7280;
+      }
+
+      .footer a {
+        color: #8b5cf6;
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .config-warning {
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 20px 0;
+        text-align: left;
+      }
+
+      .config-warning h3 {
+        color: #92400e;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .config-warning p {
+        color: #92400e;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 30px 20px;
+        }
+
+        h1 {
+          font-size: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo" style="background: none; padding: 0">
+        <img
+          src="app-icon.png"
+          alt="LittleGuide Logo"
+          style="
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: block;
+            margin: 0 auto;
+            object-fit: cover;
+          "
+        />
+      </div>
+
+      <div id="verifying" class="verifying-section">
+        <div class="status-icon verifying">
+          <div class="spinner"></div>
+        </div>
+        <h1>Verifying Your Email</h1>
+        <p class="subtitle">
+          Please wait while we confirm your email address...
+        </p>
+      </div>
+
+      <div id="success" class="success-section hidden">
+        <div class="status-icon success">✓</div>
+        <h1>Email Verified! 🎉</h1>
+        <p class="subtitle">
+          Your email has been successfully verified. You can now sign in to your
+          LittleGuide account.
+        </p>
+
+        <div class="info-box">
+          <div class="info-title">✅ Verification Complete</div>
+          <div class="info-text">
+            Your email has been verified successfully. You can now access all
+            features of LittleGuide.
+          </div>
+        </div>
+
+        <a
+          href="https://little-guide-web.netlify.app"
+          class="button"
+          id="main-app-button"
+          >Go to LittleGuide</a
+        >
+      </div>
+
+      <div id="error" class="error-section hidden">
+        <div class="status-icon error">⚠</div>
+        <h1>Verification Failed</h1>
+        <p class="subtitle" id="error-message">
+          Something went wrong. Please try again or contact support.
+        </p>
+
+        <div class="error-details" id="error-details">
+          <h3>⚠️ Verification Failed</h3>
+          <p>
+            This could be due to an expired link or invalid token. Please try
+            the following:
+          </p>
+          <ul style="margin-top: 8px; padding-left: 20px">
+            <li>Go back to the sign-up page</li>
+            <li>Request a new verification email</li>
+            <li>Check your email and try again</li>
+          </ul>
+        </div>
+
+        <a
+          href="https://little-guide-web.netlify.app"
+          class="button"
+          id="main-app-error-button"
+          >Go to LittleGuide</a
+        >
+        <a
+          href="https://little-guide-web.netlify.app/sign-up"
+          class="button secondary"
+          >Try Again</a
+        >
+      </div>
+
+      <div id="config-warning" class="config-warning hidden">
+        <h3>⚠️ Configuration Required</h3>
+        <p>
+          Environment variables are not properly configured. Please check your
+          deployment settings.
+        </p>
+      </div>
+
+      <div class="footer">
+        Need help? Contact
+        <a href="mailto:support@littleguide.ai">support@littleguide.ai</a>
+      </div>
+    </div>
+
+    <script>
+      const supabaseUrl = window.ENV?.SUPABASE_URL;
+      const supabaseAnonKey = window.ENV?.SUPABASE_ANON_KEY;
+
+      if (
+        !supabaseUrl ||
+        !supabaseAnonKey ||
+        supabaseUrl === "https://qnafvveopvlgvgybpyue.supabase.co" ||
+        supabaseAnonKey === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYWZ2dmVvcHZsZ3ZneWJweXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzI2NTIsImV4cCI6MjA1OTAwODY1Mn0.Xcnl0-iq1PsSjPMvcvCelq5mIpn8PLdZLT_HFd9szSU"
+      ) {
+        document.getElementById("config-warning").classList.remove("hidden");
+        document.getElementById("verifying").classList.add("hidden");
+        console.error(
+          "Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
+        );
+        return;
+      }
+
+      // Initialize Supabase client
+      const supabase = window.supabase.createClient(
+        supabaseUrl,
+        supabaseAnonKey
+      );
+
+      // Get URL parameters
+      function getUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(
+          window.location.hash.substring(1)
+        );
+
+        return {
+          token: urlParams.get("token") || hashParams.get("token"),
+          type: urlParams.get("type") || hashParams.get("type"),
+          email: urlParams.get("email") || hashParams.get("email"),
+        };
+      }
+
+      // Show section
+      function showSection(sectionId) {
+        document
+          .querySelectorAll(
+            '[id$="-section"], [id="verifying"], [id="success"], [id="error"]'
+          )
+          .forEach((section) => {
+            section.classList.add("hidden");
+          });
+        document.getElementById(sectionId).classList.remove("hidden");
+      }
+
+      // Show error
+      function showError(message, details = null) {
+        document.getElementById("error-message").textContent = message;
+        if (details) {
+          document.getElementById("error-details").innerHTML = details;
+        }
+        showSection("error");
+      }
+
+      // Verify email
+      async function verifyEmail() {
+        try {
+          const { token, type, email } = getUrlParams();
+
+          console.log("Verification params:", { token: !!token, type, email });
+
+          if (!token) {
+            showError("No verification token found in URL");
+            return;
+          }
+
+          // Use Supabase's built-in verification
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: type || "signup",
+          });
+
+          if (error) {
+            console.error("Email verification error:", error);
+            showError(`Verification failed: ${error.message}`);
+            return;
+          }
+
+          if (data?.user) {
+            console.log("Email verification successful:", data.user.email);
+            showSection("success");
+          } else {
+            showError("Verification completed but no user data received");
+          }
+        } catch (error) {
+          console.error("Email verification error:", error);
+          showError(
+            `Failed to verify email: ${error.message || "Unknown error"}`
+          );
+        }
+      }
+
+      // Start verification when page loads
+      document.addEventListener("DOMContentLoaded", () => {
+        // Add a small delay for better UX
+        setTimeout(verifyEmail, 1000);
+      });
+    </script>
+  </body>
+</html>
