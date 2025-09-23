@@ -1,6 +1,6 @@
 {
   "name": "littleguide-email-verification",
-  "version": "1.0.0",
+  "version": "1.0.0", 
   "description": "Email verification page for LittleGuide app",
   "main": "index.html",
   "scripts": {
