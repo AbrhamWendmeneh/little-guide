@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Email Verification - LittleGuide</title>
+    <title>Authentication - LittleGuide</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
       window.ENV = {
@@ -203,6 +203,77 @@
         display: none;
       }
 
+      .form-container {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        margin: 20px 0;
+        text-align: left;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.2s;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+      }
+
+      .form-input.error {
+        border-color: #dc2626;
+      }
+
+      .form-error {
+        color: #dc2626;
+        font-size: 14px;
+        margin-top: 4px;
+      }
+
+      .form-success {
+        color: #16a34a;
+        font-size: 14px;
+        margin-top: 4px;
+      }
+
+      .password-requirements {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+        font-size: 14px;
+        color: #0369a1;
+      }
+
+      .password-requirements ul {
+        margin: 8px 0 0 0;
+        padding-left: 20px;
+      }
+
+      .password-requirements li {
+        margin-bottom: 4px;
+      }
+
       .config-warning {
         background: #fef3c7;
         border: 1px solid #fde68a;
@@ -301,6 +372,82 @@
         </div>
       </div>
 
+      <div id="password-reset" class="password-reset-section hidden">
+        <div class="status-icon verifying">
+          <div class="spinner"></div>
+        </div>
+        <h1>Reset Your Password</h1>
+        <p class="subtitle">
+          Enter your new password below to complete the reset process.
+        </p>
+
+        <div class="form-container">
+          <form id="password-reset-form">
+            <div class="form-group">
+              <label for="new-password" class="form-label">New Password</label>
+              <input
+                type="password"
+                id="new-password"
+                class="form-input"
+                placeholder="Enter your new password"
+                required
+                minlength="8"
+              />
+              <div class="password-requirements">
+                <strong>Password Requirements:</strong>
+                <ul>
+                  <li>At least 8 characters long</li>
+                  <li>Contains at least one uppercase letter</li>
+                  <li>Contains at least one lowercase letter</li>
+                  <li>Contains at least one number</li>
+                </ul>
+              </div>
+              <div id="password-error" class="form-error hidden"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="confirm-password" class="form-label"
+                >Confirm Password</label
+              >
+              <input
+                type="password"
+                id="confirm-password"
+                class="form-input"
+                placeholder="Confirm your new password"
+                required
+              />
+              <div id="confirm-error" class="form-error hidden"></div>
+            </div>
+
+            <button type="submit" class="button" id="reset-button">
+              Reset Password
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div
+        id="password-reset-success"
+        class="password-reset-success-section hidden"
+      >
+        <div class="status-icon success">✓</div>
+        <h1>Password Reset Complete! 🎉</h1>
+        <p class="subtitle">
+          Your password has been successfully updated. You can now sign in with
+          your new password.
+        </p>
+
+        <div class="info-box">
+          <div class="info-title">✅ Password Updated</div>
+          <div class="info-text">
+            Your password has been successfully reset. You can now sign in to
+            your LittleGuide account with your new password.
+          </div>
+        </div>
+
+        <a href="#" class="button" id="sign-in-link">Sign In to LittleGuide</a>
+      </div>
+
       <div id="config-warning" class="config-warning hidden">
         <h3>⚠️ Configuration Required</h3>
         <p>
@@ -350,6 +497,10 @@
           token: urlParams.get("token") || hashParams.get("token"),
           type: urlParams.get("type") || hashParams.get("type"),
           email: urlParams.get("email") || hashParams.get("email"),
+          access_token:
+            urlParams.get("access_token") || hashParams.get("access_token"),
+          refresh_token:
+            urlParams.get("refresh_token") || hashParams.get("refresh_token"),
         };
       }
 
@@ -357,7 +508,7 @@
       function showSection(sectionId) {
         document
           .querySelectorAll(
-            '[id$="-section"], [id="verifying"], [id="success"], [id="error"]'
+            '[id$="-section"], [id="verifying"], [id="success"], [id="error"], [id="password-reset"], [id="password-reset-success"]'
           )
           .forEach((section) => {
             section.classList.add("hidden");
@@ -372,6 +523,92 @@
           document.getElementById("error-details").innerHTML = details;
         }
         showSection("error");
+      }
+
+      // Validate password strength
+      function validatePassword(password) {
+        const requirements = {
+          length: password.length >= 8,
+          uppercase: /[A-Z]/.test(password),
+          lowercase: /[a-z]/.test(password),
+          number: /\d/.test(password),
+        };
+
+        const isValid = Object.values(requirements).every(Boolean);
+        return { isValid, requirements };
+      }
+
+      // Show form error
+      function showFormError(elementId, message) {
+        const errorElement = document.getElementById(elementId);
+        errorElement.textContent = message;
+        errorElement.classList.remove("hidden");
+        document
+          .getElementById(elementId.replace("-error", ""))
+          .classList.add("error");
+      }
+
+      // Clear form error
+      function clearFormError(elementId) {
+        const errorElement = document.getElementById(elementId);
+        errorElement.textContent = "";
+        errorElement.classList.add("hidden");
+        document
+          .getElementById(elementId.replace("-error", ""))
+          .classList.remove("error");
+      }
+
+      // Handle password reset
+      async function handlePasswordReset() {
+        try {
+          const { access_token, refresh_token } = getUrlParams();
+
+          if (!access_token) {
+            showError("No reset token found in URL");
+            return;
+          }
+
+          // Set the session with the tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+
+          if (error) {
+            console.error("Session error:", error);
+            showError(`Failed to authenticate: ${error.message}`);
+            return;
+          }
+
+          // Show password reset form
+          showSection("password-reset");
+        } catch (error) {
+          console.error("Password reset setup error:", error);
+          showError(`Failed to setup password reset: ${error.message}`);
+        }
+      }
+
+      // Reset password
+      async function resetPassword(newPassword) {
+        try {
+          const { data, error } = await supabase.auth.updateUser({
+            password: newPassword,
+          });
+
+          if (error) {
+            console.error("Password reset error:", error);
+            throw error;
+          }
+
+          console.log("Password reset successful");
+          showSection("password-reset-success");
+        } catch (error) {
+          console.error("Password reset error:", error);
+          showFormError(
+            "password-error",
+            `Failed to reset password: ${error.message}`
+          );
+        }
       }
 
       // Verify email
@@ -412,10 +649,79 @@
         }
       }
 
+      // Initialize the page based on URL parameters
+      function initializePage() {
+        const { type, access_token } = getUrlParams();
+
+        // Check if this is a password reset flow
+        if (type === "recovery" || access_token) {
+          handlePasswordReset();
+        } else {
+          // Default to email verification
+          setTimeout(verifyEmail, 1000);
+        }
+      }
+
       // Start verification when page loads
       document.addEventListener("DOMContentLoaded", () => {
-        // Add a small delay for better UX
-        setTimeout(verifyEmail, 1000);
+        initializePage();
+      });
+
+      // Handle password reset form submission
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("password-reset-form");
+        if (form) {
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const newPassword = document.getElementById("new-password").value;
+            const confirmPassword =
+              document.getElementById("confirm-password").value;
+
+            // Clear previous errors
+            clearFormError("password-error");
+            clearFormError("confirm-error");
+
+            // Validate password
+            const validation = validatePassword(newPassword);
+            if (!validation.isValid) {
+              showFormError(
+                "password-error",
+                "Password does not meet requirements"
+              );
+              return;
+            }
+
+            // Check if passwords match
+            if (newPassword !== confirmPassword) {
+              showFormError("confirm-error", "Passwords do not match");
+              return;
+            }
+
+            // Disable form during submission
+            const submitButton = document.getElementById("reset-button");
+            submitButton.disabled = true;
+            submitButton.textContent = "Resetting...";
+
+            try {
+              await resetPassword(newPassword);
+            } finally {
+              submitButton.disabled = false;
+              submitButton.textContent = "Reset Password";
+            }
+          });
+        }
+
+        // Handle sign-in link
+        const signInLink = document.getElementById("sign-in-link");
+        if (signInLink) {
+          signInLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            // Redirect to the app's sign-in page
+            window.location.href =
+              "https://AbrhamWendmeneh.github.io/little-guide/";
+          });
+        }
       });
     </script>
   </body>

@@ -1,95 +1,85 @@
-# LittleGuide Email Verification Site
+# Little Guide Authentication Handler
 
-A standalone HTML page for handling email verification for the LittleGuide app using Supabase authentication.
+This web page handles both email verification and password reset for the Little Guide app.
 
-## 🚀 Quick Deployment
+## Features
 
-### Option 1: Netlify (Recommended)
+### Email Verification
 
-1. **Upload to GitHub:**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/your-username/littleguide-email-verification.git
-   git push -u origin main
-   ```
+- Handles email verification links from sign-up process
+- Shows success/error states with appropriate messaging
+- Redirects users back to the app after successful verification
 
-2. **Deploy on Netlify:**
-   - Go to [Netlify](https://netlify.com)
-   - Click "New site from Git"
-   - Connect your GitHub repository
-   - Set build command: `echo 'Static site'`
-   - Set publish directory: `.`
-   - Add environment variables in Site Settings > Environment Variables:
-     - `SUPABASE_URL`: Your Supabase project URL
-     - `SUPABASE_ANON_KEY`: Your Supabase anon key
+### Password Reset
 
-### Option 2: Vercel
+- Handles password reset links from forgot password flow
+- Secure password reset form with validation
+- Password strength requirements
+- Confirmation matching
+- Success confirmation after reset
 
-1. **Deploy with Vercel:**
-   - Go to [Vercel](https://vercel.com)
-   - Import your GitHub repository
-   - Add environment variables:
-     - `SUPABASE_URL`: Your Supabase project URL
-     - `SUPABASE_ANON_KEY`: Your Supabase anon key
+## URL Parameters
 
-### Option 3: GitHub Pages
+### Email Verification
 
-1. **Enable GitHub Pages:**
-   - Go to repository Settings > Pages
-   - Select "Deploy from a branch"
-   - Choose `main` branch and `/` folder
-   - Add environment variables in repository secrets (if supported)
+- `token`: Verification token from Supabase
+- `type`: Usually "signup" for email verification
+- `email`: User's email address
 
-## 🔧 Environment Variables
+### Password Reset
 
-You need to set these environment variables in your deployment platform:
+- `type`: Set to "recovery" for password reset
+- `access_token`: Supabase access token
+- `refresh_token`: Supabase refresh token
 
-- `SUPABASE_URL`: Your Supabase project URL (e.g., `https://your-project.supabase.co`)
-- `SUPABASE_ANON_KEY`: Your Supabase anon/public key
+## Password Requirements
 
-## 📝 Supabase Configuration
+- At least 8 characters long
+- Contains at least one uppercase letter
+- Contains at least one lowercase letter
+- Contains at least one number
 
-After deployment, update your Supabase project:
+## Configuration
 
-1. Go to Supabase Dashboard > Authentication > URL Configuration
-2. Add your deployed URL to:
-   - **Site URLs**: `https://your-deployed-url.netlify.app`
-   - **Redirect URLs**: `https://your-deployed-url.netlify.app`
+The page uses environment variables for Supabase configuration:
 
-## 🎯 Features
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
 
-- ✅ Secure environment variable configuration
-- ✅ Automatic email verification
-- ✅ Beautiful, responsive UI
-- ✅ Error handling and user feedback
-- ✅ Mobile-friendly design
-- ✅ No hardcoded credentials
+## Deployment
 
-## 🔒 Security
+This page is deployed to GitHub Pages at:
+`https://AbrhamWendmeneh.github.io/little-guide/`
 
-- Uses environment variables for sensitive data
-- No credentials exposed in the code
-- Secure Supabase integration
-- Proper error handling
+Make sure to update your Supabase project settings to include this URL in the allowed redirect URLs.
 
-## 📱 Usage
+## Supabase Configuration
 
-1. User signs up in your main app
-2. Receives verification email from Supabase
-3. Clicks verification link
-4. Redirected to this verification page
-5. Page automatically verifies the token
-6. User sees success/error message
-7. Can return to main app
+In your Supabase project dashboard:
 
-## 🛠️ Customization
+1. Go to Authentication > URL Configuration
+2. Add the following Site URLs:
 
-- Update the redirect URLs in the HTML file to match your main app
-- Modify the styling in the `<style>` section
-- Change the logo and branding as needed
+   - `https://AbrhamWendmeneh.github.io/little-guide/`
+   - `http://localhost:8081` (for development)
 
-## 📞 Support
+3. Add the following Redirect URLs:
+   - `https://AbrhamWendmeneh.github.io/little-guide/`
+   - `http://localhost:8081/auth-callback`
 
-For issues or questions, contact: support@littleguide.ai
+## Usage
+
+### For Email Verification
+
+Users will be redirected here automatically after clicking the verification link in their email.
+
+### For Password Reset
+
+Users will be redirected here after clicking the password reset link in their email. They can then enter a new password.
+
+## Security
+
+- All password operations are handled securely through Supabase
+- Tokens are validated before allowing password changes
+- Form validation prevents weak passwords
+- CSRF protection through Supabase's built-in security
