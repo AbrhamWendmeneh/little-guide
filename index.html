@@ -563,21 +563,21 @@
         try {
           const { access_token, refresh_token } = getUrlParams();
 
-          if (!access_token) {
-            showError("No reset token found in URL");
-            return;
-          }
+          // If we have tokens, try to set the session
+          if (access_token) {
+            console.log("Setting session with tokens");
+            const { data, error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            });
 
-          // Set the session with the tokens
-          const { data, error } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-          });
-
-          if (error) {
-            console.error("Session error:", error);
-            showError(`Failed to authenticate: ${error.message}`);
-            return;
+            if (error) {
+              console.error("Session error:", error);
+              showError(`Failed to authenticate: ${error.message}`);
+              return;
+            }
+          } else {
+            console.log("No tokens found, showing password reset form anyway");
           }
 
           // Show password reset form
@@ -651,14 +651,27 @@
 
       // Initialize the page based on URL parameters
       function initializePage() {
-        const { type, access_token } = getUrlParams();
+        const { type, access_token, token } = getUrlParams();
+
+        console.log("URL parameters:", {
+          type,
+          access_token: !!access_token,
+          token: !!token,
+        });
 
         // Check if this is a password reset flow
+        // Supabase password reset typically uses access_token in the URL
         if (type === "recovery" || access_token) {
+          console.log("Detected password reset flow");
           handlePasswordReset();
-        } else {
+        } else if (token) {
+          console.log("Detected email verification flow");
           // Default to email verification
           setTimeout(verifyEmail, 1000);
+        } else {
+          console.log("No parameters detected, defaulting to password reset");
+          // If no parameters, assume it's a password reset (since email verification needs a token)
+          handlePasswordReset();
         }
       }
 
