@@ -649,6 +649,54 @@
         }
       }
 
+      // Handle Google OAuth callback
+      async function handleGoogleOAuth() {
+        try {
+          const { access_token, refresh_token } = getUrlParams();
+
+          console.log("Google OAuth callback detected");
+          console.log("Access token:", !!access_token);
+          console.log("Refresh token:", !!refresh_token);
+
+          if (access_token && refresh_token) {
+            console.log("Setting session with Google OAuth tokens");
+            const { data, error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            });
+
+            if (error) {
+              console.error("Google OAuth session error:", error);
+              showError(`Google Sign-In failed: ${error.message}`);
+              return;
+            }
+
+            if (data?.user) {
+              console.log("Google Sign-In successful:", data.user.email);
+              showSection("success");
+
+              // Update the success message for Google OAuth
+              document.querySelector("#success h1").textContent =
+                "Google Sign-In Successful! 🎉";
+              document.querySelector("#success .subtitle").textContent =
+                "You have successfully signed in with Google. You can now close this window and return to the app.";
+
+              // Close the window after a delay
+              setTimeout(() => {
+                window.close();
+              }, 3000);
+            } else {
+              showError("Google Sign-In completed but no user data received");
+            }
+          } else {
+            showError("No Google OAuth tokens found in URL");
+          }
+        } catch (error) {
+          console.error("Google OAuth error:", error);
+          showError(`Google Sign-In failed: ${error.message}`);
+        }
+      }
+
       // Initialize the page based on URL parameters
       function initializePage() {
         const { type, access_token, token } = getUrlParams();
@@ -659,9 +707,11 @@
           token: !!token,
         });
 
-        // Check if this is a password reset flow
-        // Supabase password reset typically uses access_token in the URL
-        if (type === "recovery" || access_token) {
+        // Check if this is a Google OAuth callback
+        if (access_token && !type) {
+          console.log("Detected Google OAuth flow");
+          handleGoogleOAuth();
+        } else if (type === "recovery" || access_token) {
           console.log("Detected password reset flow");
           handlePasswordReset();
         } else if (token) {
