@@ -406,9 +406,7 @@
             </div>
 
             <div class="form-group">
-              <label for="confirm-password" class="form-label"
-                >Confirm Password</label
-              >
+              <label for="confirm-password" class="form-label">Confirm Password</label>
               <input
                 type="password"
                 id="confirm-password"
@@ -426,22 +424,17 @@
         </div>
       </div>
 
-      <div
-        id="password-reset-success"
-        class="password-reset-success-section hidden"
-      >
+      <div id="password-reset-success" class="password-reset-success-section hidden">
         <div class="status-icon success">✓</div>
         <h1>Password Reset Complete! 🎉</h1>
         <p class="subtitle">
-          Your password has been successfully updated. You can now sign in with
-          your new password.
+          Your password has been successfully updated. You can now sign in with your new password.
         </p>
 
         <div class="info-box">
           <div class="info-title">✅ Password Updated</div>
           <div class="info-text">
-            Your password has been successfully reset. You can now sign in to
-            your LittleGuide account with your new password.
+            Your password has been successfully reset. You can now sign in to your LittleGuide account with your new password.
           </div>
         </div>
 
@@ -486,22 +479,34 @@
         supabaseAnonKey
       );
 
-      // Get URL parameters
+      // --- improved URL param parsing (reads both search and hash safely) ---
       function getUrlParams() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(
-          window.location.hash.substring(1)
-        );
+        const search = new URLSearchParams(window.location.search);
+        // parse hash like "#access_token=...&type=...&token=..."
+        const rawHash = window.location.hash.startsWith("#")
+          ? window.location.hash.substring(1)
+          : window.location.hash;
+        const hash = new URLSearchParams(rawHash);
 
-        return {
-          token: urlParams.get("token") || hashParams.get("token"),
-          type: urlParams.get("type") || hashParams.get("type"),
-          email: urlParams.get("email") || hashParams.get("email"),
-          access_token:
-            urlParams.get("access_token") || hashParams.get("access_token"),
-          refresh_token:
-            urlParams.get("refresh_token") || hashParams.get("refresh_token"),
+        // helper to prefer search param then hash param
+        const getParam = (name) => search.get(name) || hash.get(name);
+
+        const params = {
+          token: getParam("token"),
+          type: getParam("type"),
+          email: getParam("email"),
+          access_token: getParam("access_token"),
+          refresh_token: getParam("refresh_token"),
+          provider_token: getParam("provider_token"),
         };
+
+        console.log("=== URL PARAMETERS DEBUG ===");
+        console.log("Search params:", window.location.search);
+        console.log("Hash params:", window.location.hash);
+        console.log("Parsed params:", params);
+        console.log("===========================");
+
+        return params;
       }
 
       // Show section
@@ -543,9 +548,7 @@
         const errorElement = document.getElementById(elementId);
         errorElement.textContent = message;
         errorElement.classList.remove("hidden");
-        document
-          .getElementById(elementId.replace("-error", ""))
-          .classList.add("error");
+        document.getElementById(elementId.replace("-error", "")).classList.add("error");
       }
 
       // Clear form error
@@ -553,34 +556,32 @@
         const errorElement = document.getElementById(elementId);
         errorElement.textContent = "";
         errorElement.classList.add("hidden");
-        document
-          .getElementById(elementId.replace("-error", ""))
-          .classList.remove("error");
+        document.getElementById(elementId.replace("-error", "")).classList.remove("error");
       }
 
-      // Handle password reset
+      // --- PASSWORD RESET HANDLER ---
       async function handlePasswordReset() {
         try {
-          const { access_token, refresh_token } = getUrlParams();
+          const { access_token, refresh_token, type } = getUrlParams();
 
-          // If we have tokens, try to set the session
-          if (access_token) {
-            console.log("Setting session with tokens");
+          // For recovery flows Supabase typically supplies type=recovery and access_token in the fragment.
+          if (type === "recovery" && access_token) {
+            // Set session using tokens so updateUser() will work
             const { data, error } = await supabase.auth.setSession({
               access_token,
               refresh_token,
             });
 
             if (error) {
-              console.error("Session error:", error);
-              showError(`Failed to authenticate: ${error.message}`);
+              console.error("Session error during recovery:", error);
+              showError(`Failed to authenticate for recovery: ${error.message}`);
               return;
             }
           } else {
-            console.log("No tokens found, showing password reset form anyway");
+            // No tokens: still show the reset form so user can request a new recovery email or paste tokens manually
+            console.log("No recovery tokens found; showing password reset form.");
           }
 
-          // Show password reset form
           showSection("password-reset");
         } catch (error) {
           console.error("Password reset setup error:", error);
@@ -604,29 +605,25 @@
           showSection("password-reset-success");
         } catch (error) {
           console.error("Password reset error:", error);
-          showFormError(
-            "password-error",
-            `Failed to reset password: ${error.message}`
-          );
+          showFormError("password-error", `Failed to reset password: ${error.message}`);
         }
       }
 
-      // Verify email
+      // --- EMAIL VERIFICATION (use correct parameter name) ---
       async function verifyEmail() {
         try {
-          const { token, type, email } = getUrlParams();
+          const { token, type } = getUrlParams();
+          console.log("Verification params:", { token: !!token, type });
 
-          console.log("Verification params:", { token: !!token, type, email });
-
-          if (!token) {
-            showError("No verification token found in URL");
+          if (!token || type !== "signup") {
+            showError("No valid email verification token found in URL");
             return;
           }
 
-          // Use Supabase's built-in verification
+          // call verifyOtp with correct argument names
           const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: token,
-            type: type || "signup",
+            token,            // correct param name
+            type: "signup",   // explicit
           });
 
           if (error) {
@@ -643,53 +640,47 @@
           }
         } catch (error) {
           console.error("Email verification error:", error);
-          showError(
-            `Failed to verify email: ${error.message || "Unknown error"}`
-          );
+          showError(`Failed to verify email: ${error.message || "Unknown error"}`);
         }
       }
 
-      // Handle Google OAuth callback
+      // --- GOOGLE OAUTH HANDLER (use getSessionFromUrl for robustness) ---
       async function handleGoogleOAuth() {
         try {
-          const { access_token, refresh_token } = getUrlParams();
+          console.log("=== GOOGLE OAUTH HANDLER STARTED ===");
 
-          console.log("Google OAuth callback detected");
-          console.log("Access token:", !!access_token);
-          console.log("Refresh token:", !!refresh_token);
+          // This helper will parse the URL fragment and set the session
+          // It also returns session / error info.
+          const { data, error } = await supabase.auth.getSessionFromUrl({
+            storeSession: true, // ensures the session is stored in localStorage
+          });
 
-          if (access_token && refresh_token) {
-            console.log("Setting session with Google OAuth tokens");
-            const { data, error } = await supabase.auth.setSession({
-              access_token,
-              refresh_token,
-            });
+          if (error) {
+            console.error("getSessionFromUrl error:", error);
+            showError(`Google Sign-In failed: ${error.message}`);
+            return;
+          }
 
-            if (error) {
-              console.error("Google OAuth session error:", error);
-              showError(`Google Sign-In failed: ${error.message}`);
-              return;
-            }
+          // If we have a session and user, show success UI
+          if (data?.session?.user) {
+            console.log("Google Sign-In successful:", data.session.user.email);
+            // Show success but ensure it's the OAuth success UI, not email verification
+            document.querySelector("#success h1").textContent =
+              "Google Sign-In Successful! 🎉";
+            document.querySelector("#success .subtitle").textContent =
+              "You have successfully signed in with Google. You can now close this window and return to the app.";
+            showSection("success");
 
-            if (data?.user) {
-              console.log("Google Sign-In successful:", data.user.email);
-              showSection("success");
-
-              // Update the success message for Google OAuth
-              document.querySelector("#success h1").textContent =
-                "Google Sign-In Successful! 🎉";
-              document.querySelector("#success .subtitle").textContent =
-                "You have successfully signed in with Google. You can now close this window and return to the app.";
-
-              // Close the window after a delay
-              setTimeout(() => {
+            // close the popup if the page was opened as a popup
+            setTimeout(() => {
+              try {
                 window.close();
-              }, 3000);
-            } else {
-              showError("Google Sign-In completed but no user data received");
-            }
+              } catch (e) {
+                // ignore window close failures
+              }
+            }, 1500);
           } else {
-            showError("No Google OAuth tokens found in URL");
+            showError("Google Sign-In completed but no user data received");
           }
         } catch (error) {
           console.error("Google OAuth error:", error);
@@ -697,32 +688,38 @@
         }
       }
 
-      // Initialize the page based on URL parameters
+      // --- INITIALIZE PAGE (decide which flow we are in) ---
       function initializePage() {
         const { type, access_token, token } = getUrlParams();
+        console.log("Decision params:", { type, access_token: !!access_token, token: !!token });
 
-        console.log("URL parameters:", {
-          type,
-          access_token: !!access_token,
-          token: !!token,
-        });
-
-        // Check if this is a Google OAuth callback
-        if (access_token && !type) {
-          console.log("Detected Google OAuth flow");
-          handleGoogleOAuth();
-        } else if (type === "recovery" || access_token) {
+        // Order explicitly:
+        // 1) recovery (password reset)
+        // 2) oauth (has access_token)
+        // 3) signup verification (type === 'signup' and token present)
+        if (type === "recovery") {
           console.log("Detected password reset flow");
           handlePasswordReset();
-        } else if (token) {
-          console.log("Detected email verification flow");
-          // Default to email verification
-          setTimeout(verifyEmail, 1000);
-        } else {
-          console.log("No parameters detected, defaulting to password reset");
-          // If no parameters, assume it's a password reset (since email verification needs a token)
-          handlePasswordReset();
+          return;
         }
+
+        // OAuth: access_token present in hash -> treat it as OAuth callback
+        if (access_token) {
+          console.log("Detected OAuth flow (access_token present)");
+          handleGoogleOAuth();
+          return;
+        }
+
+        // Email verification: explicit type=signup and a token param
+        if (type === "signup" && token) {
+          console.log("Detected email verification flow");
+          verifyEmail();
+          return;
+        }
+
+        // Fallback: show password reset form by default (or your preferred default)
+        console.log("No known parameters detected; showing recovery form by default");
+        handlePasswordReset();
       }
 
       // Start verification when page loads
@@ -736,36 +733,32 @@
         if (form) {
           form.addEventListener("submit", async (e) => {
             e.preventDefault();
-
+            
             const newPassword = document.getElementById("new-password").value;
-            const confirmPassword =
-              document.getElementById("confirm-password").value;
-
+            const confirmPassword = document.getElementById("confirm-password").value;
+            
             // Clear previous errors
             clearFormError("password-error");
             clearFormError("confirm-error");
-
+            
             // Validate password
             const validation = validatePassword(newPassword);
             if (!validation.isValid) {
-              showFormError(
-                "password-error",
-                "Password does not meet requirements"
-              );
+              showFormError("password-error", "Password does not meet requirements");
               return;
             }
-
+            
             // Check if passwords match
             if (newPassword !== confirmPassword) {
               showFormError("confirm-error", "Passwords do not match");
               return;
             }
-
+            
             // Disable form during submission
             const submitButton = document.getElementById("reset-button");
             submitButton.disabled = true;
             submitButton.textContent = "Resetting...";
-
+            
             try {
               await resetPassword(newPassword);
             } finally {
@@ -781,8 +774,7 @@
           signInLink.addEventListener("click", (e) => {
             e.preventDefault();
             // Redirect to the app's sign-in page
-            window.location.href =
-              "https://AbrhamWendmeneh.github.io/little-guide/";
+            window.location.href = "https://AbrhamWendmeneh.github.io/little-guide/";
           });
         }
       });
