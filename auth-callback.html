@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Authentication Callback - LittleGuide</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      window.ENV = {
+        SUPABASE_URL: "__SUPABASE_URL__",
+        SUPABASE_ANON_KEY: "__SUPABASE_ANON_KEY__",
+      };
+    </script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+      }
+
+      .logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 30px;
+        background: linear-gradient(135deg, #e11d48, #8b5cf6);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+      }
+
+      .status-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+      }
+
+      .status-icon.success {
+        background: #dcfce7;
+        color: #16a34a;
+      }
+
+      .status-icon.error {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #8b5cf6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 12px;
+      }
+
+      .subtitle {
+        font-size: 16px;
+        color: #6b7280;
+        line-height: 1.5;
+        margin-bottom: 30px;
+      }
+
+      .info-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+
+      .info-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+      }
+
+      .info-text {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.5;
+      }
+
+      .button {
+        background: #8b5cf6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin: 10px;
+        transition: background-color 0.2s;
+      }
+
+      .button:hover {
+        background: #7c3aed;
+      }
+
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 14px;
+        color: #6b7280;
+      }
+
+      .footer a {
+        color: #8b5cf6;
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 30px 20px;
+        }
+
+        h1 {
+          font-size: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo" style="background: none; padding: 0">
+        <img
+          src="app-icon.png"
+          alt="LittleGuide Logo"
+          style="
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: block;
+            margin: 0 auto;
+            object-fit: cover;
+          "
+        />
+      </div>
+
+      <div id="verifying" class="verifying-section">
+        <div class="status-icon verifying">
+          <div class="spinner"></div>
+        </div>
+        <h1>Processing Authentication</h1>
+        <p class="subtitle">
+          Please wait while we complete your authentication...
+        </p>
+      </div>
+
+      <div id="success" class="success-section hidden">
+        <div class="status-icon success">✓</div>
+        <h1>Authentication Successful! 🎉</h1>
+        <p class="subtitle">
+          Your authentication was successful. You can now close this window and return to the app.
+        </p>
+
+        <div class="info-box">
+          <div class="info-title">✅ Authentication Complete</div>
+          <div class="info-text">
+            You have successfully authenticated. You can now access all features of LittleGuide.
+          </div>
+        </div>
+
+        <a href="#" class="button" id="close-link">Close Window</a>
+      </div>
+
+      <div id="error" class="error-section hidden">
+        <div class="status-icon error">⚠</div>
+        <h1>Authentication Failed</h1>
+        <p class="subtitle" id="error-message">
+          Something went wrong during authentication. Please try again.
+        </p>
+
+        <a href="#" class="button" id="retry-link">Try Again</a>
+      </div>
+
+      <div class="footer">
+        Need help? Contact
+        <a href="mailto:support@littleguide.ai">support@littleguide.ai</a>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const supabaseUrl = window.ENV?.SUPABASE_URL;
+        const supabaseAnonKey = window.ENV?.SUPABASE_ANON_KEY;
+
+        if (
+          !supabaseUrl ||
+          !supabaseAnonKey ||
+          supabaseUrl === "__SUPABASE_URL__" ||
+          supabaseAnonKey === "__SUPABASE_ANON_KEY__"
+        ) {
+          console.error(
+            "Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
+          );
+          return;
+        }
+
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        // Get URL parameters
+        function getUrlParams() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+          return {
+            token: urlParams.get("token") || hashParams.get("token"),
+            type: urlParams.get("type") || hashParams.get("type"),
+            access_token: urlParams.get("access_token") || hashParams.get("access_token"),
+            refresh_token: urlParams.get("refresh_token") || hashParams.get("refresh_token"),
+            error: urlParams.get("error") || hashParams.get("error"),
+            error_description: urlParams.get("error_description") || hashParams.get("error_description"),
+          };
+        }
+
+        // Show section
+        function showSection(sectionId) {
+          document.getElementById("verifying").classList.add("hidden");
+          document.getElementById("success").classList.add("hidden");
+          document.getElementById("error").classList.add("hidden");
+          document.getElementById(sectionId).classList.remove("hidden");
+        }
+
+        // Show error
+        function showError(message) {
+          document.getElementById("error-message").textContent = message;
+          showSection("error");
+        }
+
+        // Handle authentication callback
+        async function handleAuthCallback() {
+          try {
+            const { access_token, refresh_token, error, error_description } = getUrlParams();
+
+            console.log("Auth callback params:", { 
+              access_token: !!access_token, 
+              refresh_token: !!refresh_token, 
+              error, 
+              error_description 
+            });
+
+            if (error) {
+              showError(error_description || "Authentication failed");
+              return;
+            }
+
+            if (access_token && refresh_token) {
+              console.log("Setting session with tokens");
+              const { data, error } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+              });
+
+              if (error) {
+                console.error("Session error:", error);
+                showError(`Authentication failed: ${error.message}`);
+                return;
+              }
+
+              if (data?.user) {
+                console.log("Authentication successful:", data.user.email);
+                showSection("success");
+                
+                // Auto-close after 3 seconds
+                setTimeout(() => {
+                  try {
+                    window.close();
+                  } catch (e) {
+                    // ignore window close failures
+                  }
+                }, 3000);
+              } else {
+                showError("Authentication completed but no user data received");
+              }
+            } else {
+              showError("No authentication tokens found in URL");
+            }
+          } catch (error) {
+            console.error("Auth callback error:", error);
+            showError(`Authentication failed: ${error.message}`);
+          }
+        }
+
+        // Initialize page
+        function initializePage() {
+          console.log("Initializing auth callback page");
+          handleAuthCallback();
+        }
+
+        // Handle close link
+        document.getElementById("close-link").addEventListener("click", (e) => {
+          e.preventDefault();
+          try {
+            window.close();
+          } catch (e) {
+            window.location.href = "https://abrhamwendmeneh.github.io/little-guide/";
+          }
+        });
+
+        // Handle retry link
+        document.getElementById("retry-link").addEventListener("click", (e) => {
+          e.preventDefault();
+          window.location.href = "https://abrhamwendmeneh.github.io/little-guide/";
+        });
+
+        // Start when page loads
+        document.addEventListener("DOMContentLoaded", initializePage);
+      })();
+    </script>
+  </body>
+</html>
