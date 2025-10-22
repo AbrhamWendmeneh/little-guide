@@ -6,9 +6,10 @@
     <title>Authentication Callback - LittleGuide</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+      // Environment variable configuration for Netlify
       window.ENV = {
-        SUPABASE_URL: "https://qnafvveopvlgvgybpyue.supabase.co",
-        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYWZ2dmVvcHZsZ3ZneWJweXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzI2NTIsImV4cCI6MjA1OTAwODY1Mn0.Xcnl0-iq1PsSjPMvcvCelq5mIpn8PLdZLT_HFd9szSU",
+        SUPABASE_URL: window.env?.SUPABASE_URL || "https://qnafvveopvlgvgybpyue.supabase.co",
+        SUPABASE_ANON_KEY: window.env?.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYWZ2dmVvcHZsZ3ZneWJweXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzI2NTIsImV4cCI6MjA1OTAwODY1Mn0.Xcnl0-iq1PsSjPMvcvCelq5mIpn8PLdZLT_HFd9szSU",
       };
     </script>
     <style>
@@ -238,12 +239,7 @@
         const supabaseUrl = window.ENV?.SUPABASE_URL;
         const supabaseAnonKey = window.ENV?.SUPABASE_ANON_KEY;
 
-        if (
-          !supabaseUrl ||
-          !supabaseAnonKey ||
-          supabaseUrl === "https://qnafvveopvlgvgybpyue.supabase.co" ||
-          supabaseAnonKey === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYWZ2dmVvcHZsZ3ZneWJweXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzI2NTIsImV4cCI6MjA1OTAwODY1Mn0.Xcnl0-iq1PsSjPMvcvCelq5mIpn8PLdZLT_HFd9szSU"
-        ) {
+        if (!supabaseUrl || !supabaseAnonKey) {
           console.error(
             "Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
           );
