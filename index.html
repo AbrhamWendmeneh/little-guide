@@ -486,15 +486,18 @@
         // helper to prefer search param then hash param
         const getParam = (name) => search.get(name) || hash.get(name);
 
-        const params = {
-          token: getParam("token"),
-          type: getParam("type"),
-          email: getParam("email"),
-          access_token: getParam("access_token"),
-          refresh_token: getParam("refresh_token"),
-          provider_token: getParam("provider_token"),
-          code: getParam("code"),
-        };
+         const params = {
+           token: getParam("token"),
+           type: getParam("type"),
+           email: getParam("email"),
+           access_token: getParam("access_token"),
+           refresh_token: getParam("refresh_token"),
+           provider_token: getParam("provider_token"),
+           code: getParam("code"),
+           error: getParam("error"),
+           error_code: getParam("error_code"),
+           error_description: getParam("error_description"),
+         };
 
         console.log("=== URL PARAMETERS DEBUG ===");
         console.log("Search params:", window.location.search);
@@ -605,38 +608,73 @@
         }
       }
 
-      // --- EMAIL VERIFICATION (use correct parameter name) ---
+      // --- EMAIL VERIFICATION (handle both token and access_token cases) ---
       async function verifyEmail() {
         try {
-          const { token, type } = getUrlParams();
-          console.log("Verification params:", { token: !!token, type });
+          const { token, access_token, type } = getUrlParams();
+          console.log("Verification params:", { token: !!token, access_token: !!access_token, type });
 
-          if (!token || type !== "signup") {
-            showError("No valid email verification token found in URL");
+          // For email verification, we can have either:
+          // 1. A token parameter (old format)
+          // 2. An access_token parameter (new format with session)
+          if (type !== "signup") {
+            showError("Invalid verification link type", "This link is not for email verification. Please check your email for the correct verification link.");
             return;
           }
 
-          // call verifyOtp with correct argument names
-          const { data, error } = await supabase.auth.verifyOtp({
-            token,            // correct param name
-            type: "signup",   // explicit
-          });
+          if (access_token) {
+            // New format: use getSessionFromUrl to handle the session
+            console.log("Using getSessionFromUrl for email verification");
+            
+            // Check if getSessionFromUrl method exists
+            if (typeof supabase.auth.getSessionFromUrl !== 'function') {
+              console.error("getSessionFromUrl method not available");
+              showError("Verification method not supported", "This verification method is not supported. Please try requesting a new verification email.");
+              return;
+            }
 
-          if (error) {
-            console.error("Email verification error:", error);
-            showError(`Verification failed: ${error.message}`);
-            return;
-          }
+            const { data, error } = await supabase.auth.getSessionFromUrl({
+              storeSession: true,
+            });
 
-          if (data?.user) {
-            console.log("Email verification successful:", data.user.email);
-            showSection("success");
+            if (error) {
+              console.error("Email verification error:", error);
+              showError(`Verification failed: ${error.message}`, "Please try requesting a new verification email from the app.");
+              return;
+            }
+
+            if (data?.session?.user) {
+              console.log("Email verification successful:", data.session.user.email);
+              showSection("success");
+            } else {
+              showError("Verification completed but no user data received", "The verification completed but we couldn't retrieve your user information. Please try signing in to the app.");
+            }
+          } else if (token) {
+            // Old format: use verifyOtp
+            console.log("Using verifyOtp for email verification");
+            const { data, error } = await supabase.auth.verifyOtp({
+              token,
+              type: "signup",
+            });
+
+            if (error) {
+              console.error("Email verification error:", error);
+              showError(`Verification failed: ${error.message}`, "Please try requesting a new verification email from the app.");
+              return;
+            }
+
+            if (data?.user) {
+              console.log("Email verification successful:", data.user.email);
+              showSection("success");
+            } else {
+              showError("Verification completed but no user data received", "The verification completed but we couldn't retrieve your user information. Please try signing in to the app.");
+            }
           } else {
-            showError("Verification completed but no user data received");
+            showError("No valid email verification token found", "This verification link is missing required information. Please check your email for the correct verification link.");
           }
         } catch (error) {
           console.error("Email verification error:", error);
-          showError(`Failed to verify email: ${error.message || "Unknown error"}`);
+          showError(`Failed to verify email: ${error.message || "Unknown error"}`, "Please try requesting a new verification email from the app.");
         }
       }
 
@@ -644,6 +682,13 @@
       async function handleGoogleOAuth() {
         try {
           console.log("=== GOOGLE OAUTH HANDLER STARTED ===");
+
+          // Check if getSessionFromUrl method exists
+          if (typeof supabase.auth.getSessionFromUrl !== 'function') {
+            console.error("getSessionFromUrl method not available");
+            showError("OAuth method not supported", "This authentication method is not supported. Please try signing in again.");
+            return;
+          }
 
           // This helper will parse the URL fragment and set the session
           // It also returns session / error info.
@@ -653,7 +698,7 @@
 
           if (error) {
             console.error("getSessionFromUrl error:", error);
-            showError(`Google Sign-In failed: ${error.message}`);
+            showError(`Google Sign-In failed: ${error.message}`, "Please try signing in with Google again.");
             return;
           }
 
@@ -676,47 +721,65 @@
               }
             }, 1500);
           } else {
-            showError("Google Sign-In completed but no user data received");
+            showError("Google Sign-In completed but no user data received", "The sign-in completed but we couldn't retrieve your user information. Please try signing in again.");
           }
         } catch (error) {
           console.error("Google OAuth error:", error);
-          showError(`Google Sign-In failed: ${error.message}`);
+          showError(`Google Sign-In failed: ${error.message}`, "Please try signing in with Google again.");
         }
       }
 
-      // --- INITIALIZE PAGE (decide which flow we are in) ---
-      function initializePage() {
-        const { type, access_token, token, code } = getUrlParams();
-        console.log("Decision params:", { type, access_token: !!access_token, token: !!token, code: !!code });
+       // --- INITIALIZE PAGE (decide which flow we are in) ---
+       function initializePage() {
+         const { type, access_token, token, code, error, error_code, error_description } = getUrlParams();
+         console.log("Decision params:", { type, access_token: !!access_token, token: !!token, code: !!code, error, error_code });
 
-        // Order explicitly:
-        // 1) recovery (password reset)
-        // 2) oauth (has access_token OR code parameter)
-        // 3) signup verification (type === 'signup' and token present)
-        if (type === "recovery") {
-          console.log("Detected password reset flow");
-          handlePasswordReset();
-          return;
-        }
+         // Check for error parameters first
+         if (error || error_code) {
+           console.log("Detected error in URL:", { error, error_code, error_description });
+           if (error_code === "otp_expired" || error === "access_denied") {
+             showError("Verification link has expired", "This verification link is no longer valid. Please request a new verification email from the app.");
+             return;
+           } else if (error_code === "invalid_token" || error === "invalid_request") {
+             showError("Invalid verification link", "This verification link is not valid. Please check your email for the correct link or request a new one.");
+             return;
+           } else if (error_code === "user_not_found") {
+             showError("Account not found", "No account was found with this email address. Please check your email or create a new account.");
+             return;
+           } else {
+             showError("Authentication Error", error_description || "Something went wrong. Please try again.");
+             return;
+           }
+         }
 
-        // OAuth: access_token present in hash OR code parameter -> treat it as OAuth callback
-        if (access_token || code) {
-          console.log("Detected OAuth flow (access_token or code present)");
-          handleGoogleOAuth();
-          return;
-        }
+         // Order explicitly:
+         // 1) recovery (password reset)
+         // 2) oauth (has access_token OR code parameter)
+         // 3) signup verification (type === 'signup' and token present)
+         if (type === "recovery") {
+           console.log("Detected password reset flow");
+           handlePasswordReset();
+           return;
+         }
 
-        // Email verification: explicit type=signup and a token param
-        if (type === "signup" && token) {
-          console.log("Detected email verification flow");
-          verifyEmail();
-          return;
-        }
+         // Email verification: explicit type=signup (with or without token)
+         if (type === "signup") {
+           console.log("Detected email verification flow");
+           verifyEmail();
+           return;
+         }
 
-        // Fallback: show password reset form by default (or your preferred default)
-        console.log("No known parameters detected; showing recovery form by default");
-        handlePasswordReset();
-      }
+         // OAuth: access_token present in hash OR code parameter -> treat it as OAuth callback
+         if (access_token || code) {
+           console.log("Detected OAuth flow (access_token or code present)");
+           handleGoogleOAuth();
+           return;
+         }
+
+   // Fallback: show password reset form by default (or your preferred default)
+         console.log("No known parameters detected; showing recovery form by default");
+         handlePasswordReset();
+       }
 
       // Start verification when page loads
       document.addEventListener("DOMContentLoaded", () => {

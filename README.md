@@ -49,7 +49,7 @@ The page uses environment variables for Supabase configuration:
 ## Deployment
 
 This page is deployed to GitHub Pages at:
-`https://AbrhamWendmeneh.github.io/little-guide/`
+`https://littleguide.netlify.app/`
 
 Make sure to update your Supabase project settings to include this URL in the allowed redirect URLs.
 
@@ -60,11 +60,11 @@ In your Supabase project dashboard:
 1. Go to Authentication > URL Configuration
 2. Add the following Site URLs:
 
-   - `https://AbrhamWendmeneh.github.io/little-guide/`
+   - `s://littleguide.netlify.app/`
    - `http://localhost:8081` (for development)
 
 3. Add the following Redirect URLs:
-   - `https://AbrhamWendmeneh.github.io/little-guide/`
+   - `https://littleguide.netlify.app/`
    - `http://localhost:8081/auth-callback`
 
 ## Usage
@@ -83,3 +83,4 @@ Users will be redirected here after clicking the password reset link in their em
 - Tokens are validated before allowing password changes
 - Form validation prevents weak passwords
 - CSRF protection through Supabase's built-in security
+http
