@@ -545,17 +545,43 @@
       // Show form error
       function showFormError(elementId, message) {
         const errorElement = document.getElementById(elementId);
+        if (!errorElement) return;
+        
         errorElement.textContent = message;
         errorElement.classList.remove("hidden");
-        document.getElementById(elementId.replace("-error", "")).classList.add("error");
+        
+        // Map error element IDs to their corresponding input IDs
+        const inputIdMap = {
+          "password-error": "new-password",
+          "confirm-error": "confirm-password"
+        };
+        
+        const inputId = inputIdMap[elementId];
+        const inputElement = inputId ? document.getElementById(inputId) : null;
+        if (inputElement) {
+          inputElement.classList.add("error");
+        }
       }
 
       // Clear form error
       function clearFormError(elementId) {
         const errorElement = document.getElementById(elementId);
+        if (!errorElement) return;
+        
         errorElement.textContent = "";
         errorElement.classList.add("hidden");
-        document.getElementById(elementId.replace("-error", "")).classList.remove("error");
+        
+        // Map error element IDs to their corresponding input IDs
+        const inputIdMap = {
+          "password-error": "new-password",
+          "confirm-error": "confirm-password"
+        };
+        
+        const inputId = inputIdMap[elementId];
+        const inputElement = inputId ? document.getElementById(inputId) : null;
+        if (inputElement) {
+          inputElement.classList.remove("error");
+        }
       }
 
       // --- PASSWORD RESET HANDLER ---
@@ -611,8 +637,8 @@
       // --- EMAIL VERIFICATION (handle both token and access_token cases) ---
       async function verifyEmail() {
         try {
-          const { token, access_token, type } = getUrlParams();
-          console.log("Verification params:", { token: !!token, access_token: !!access_token, type });
+          const { token, access_token, refresh_token, type } = getUrlParams();
+          console.log("Verification params:", { token: !!token, access_token: !!access_token, refresh_token: !!refresh_token, type });
 
           // For email verification, we can have either:
           // 1. A token parameter (old format)
@@ -623,18 +649,33 @@
           }
 
           if (access_token) {
-            // New format: use getSessionFromUrl to handle the session
-            console.log("Using getSessionFromUrl for email verification");
+            // New format: try getSessionFromUrl first, then fallback to setSession
+            console.log("Attempting to verify email with access_token");
             
             // Check if getSessionFromUrl method exists
-            if (typeof supabase.auth.getSessionFromUrl !== 'function') {
-              console.error("getSessionFromUrl method not available");
-              showError("Verification method not supported", "This verification method is not supported. Please try requesting a new verification email.");
-              return;
-            }
+            if (typeof supabase.auth.getSessionFromUrl === 'function') {
+              console.log("Using getSessionFromUrl for email verification");
+              const { data, error } = await supabase.auth.getSessionFromUrl({
+                storeSession: true,
+              });
 
-            const { data, error } = await supabase.auth.getSessionFromUrl({
-              storeSession: true,
+              if (error) {
+                console.error("getSessionFromUrl error:", error);
+                throw error;
+              }
+
+              if (data?.session?.user) {
+                console.log("Email verification successful:", data.session.user.email);
+                showSection("success");
+                return;
+              }
+            }
+            
+            // Fallback: use setSession if getSessionFromUrl is not available or failed
+            console.log("Using setSession fallback for email verification");
+            const { data, error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
             });
 
             if (error) {
@@ -643,8 +684,8 @@
               return;
             }
 
-            if (data?.session?.user) {
-              console.log("Email verification successful:", data.session.user.email);
+            if (data?.user) {
+              console.log("Email verification successful:", data.user.email);
               showSection("success");
             } else {
               showError("Verification completed but no user data received", "The verification completed but we couldn't retrieve your user information. Please try signing in to the app.");
@@ -682,29 +723,42 @@
       async function handleGoogleOAuth() {
         try {
           console.log("=== GOOGLE OAUTH HANDLER STARTED ===");
+          const { access_token, refresh_token } = getUrlParams();
 
-          // Check if getSessionFromUrl method exists
-          if (typeof supabase.auth.getSessionFromUrl !== 'function') {
-            console.error("getSessionFromUrl method not available");
-            showError("OAuth method not supported", "This authentication method is not supported. Please try signing in again.");
-            return;
+          let data = null;
+          let error = null;
+
+          // Try getSessionFromUrl first if available
+          if (typeof supabase.auth.getSessionFromUrl === 'function' && access_token) {
+            console.log("Using getSessionFromUrl for OAuth");
+            const result = await supabase.auth.getSessionFromUrl({
+              storeSession: true,
+            });
+            data = result.data;
+            error = result.error;
+          } else if (access_token) {
+            // Fallback: use setSession
+            console.log("Using setSession fallback for OAuth");
+            const result = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            });
+            data = result.data;
+            error = result.error;
+          } else {
+            throw new Error("No access token found in URL parameters");
           }
 
-          // This helper will parse the URL fragment and set the session
-          // It also returns session / error info.
-          const { data, error } = await supabase.auth.getSessionFromUrl({
-            storeSession: true, // ensures the session is stored in localStorage
-          });
-
           if (error) {
-            console.error("getSessionFromUrl error:", error);
+            console.error("OAuth error:", error);
             showError(`Google Sign-In failed: ${error.message}`, "Please try signing in with Google again.");
             return;
           }
 
           // If we have a session and user, show success UI
-          if (data?.session?.user) {
-            console.log("Google Sign-In successful:", data.session.user.email);
+          if (data?.session?.user || data?.user) {
+            const user = data?.session?.user || data?.user;
+            console.log("Google Sign-In successful:", user.email);
             // Show success but ensure it's the OAuth success UI, not email verification
             document.querySelector("#success h1").textContent =
               "Google Sign-In Successful! 🎉";
